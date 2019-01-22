@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from __main__ import send_cmd_help
 try:  # check if BeautifulSoup4 is installed
     from bs4 import BeautifulSoup
     soupAvailable = True
@@ -16,9 +17,16 @@ class SEcog:
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def SEnews(self):
-        """Get the last news of Space Engine"""
+    @commands.group(pass_context=True, name='SE', aliases=['Space-Engine', 'se', 'SpaceEngine', 'space-engine', 'spaceengine'])
+    async def _SEcog(self, context):
+        if context.invoked_subcommand is None:
+            await send_cmd_help(context)
+
+    @_SEcog.command(pass_context=True, name='SEnews', aliases=['SEN', 'SEn', 'sen', 'SENews', 'SENEWS', 'senews'])
+    async def _SEnews(self):
+        '''
+        Get the last news of Space Engine
+        '''
 
         async with aiohttp.get(urlSEnews) as response:
             soupObject = BeautifulSoup(await response.text(), "html.parser")
