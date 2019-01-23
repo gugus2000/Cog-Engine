@@ -9,6 +9,7 @@ except:
 import aiohttp
 
 urlSEnews = "http://spaceengine.org/news/"
+urlSEversion = "http://spaceengine.org/download/spaceengine"
 
 
 class SEcog:
@@ -22,7 +23,7 @@ class SEcog:
         if context.invoked_subcommand is None:
             await send_cmd_help(context)
 
-    @_SEcog.command(pass_context=True, name='news', aliases=['SEN', 'SEn', 'sen', 'SENews', 'SENEWS', 'senews', 'SEnews'])
+    @_SEcog.command(pass_context=True, name='news', aliases=['SEN', 'SEn', 'sen', 'SENews', 'SENEWS', 'senews', 'SEnews', 'n'])
     async def _SEnews(self):
         '''
         Get the last news of Space Engine
@@ -36,12 +37,28 @@ class SEcog:
             dateYearNews1 = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='post').find(class_='post_image').find(class_='post_date_standard_holder').find(class_='post_date_year').get_text()
             dateNews1 = dateDayNews1 + ' ' + dateMonthNews1 + ' ' + dateYearNews1
             nomNews1 = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='post').find(class_='post_text').find('h2').find('a').get_text()
-            soulignementNews1 = "="*(len(nomNews1)+len(dateNews1)+5)
+            soulignementNews1 = "="*(len(nomNews1)+len(dateNews1)+3)
             contenuNews1 = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='post').find(class_='post_text').find(class_='post_excerpt').get_text()
             lienNews1 = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='post').find(class_='post_text').find('h2').find('a')['href']
             await self.bot.say("```markdown\n" + dateNews1 + ' - ' + nomNews1 + "\n" + soulignementNews1 + "\n" + contenuNews1 + "\n[Lien vers la news](" + lienNews1 + ")\n```")
         except:
             await self.bot.say("L'information n'existe pas: la page " + urlSEnews + " a été supprimée ou son architecture modifiée.")
+
+    @_SEcog.command(pass_context=True, name='version', aliases=['v', 'SEV', 'sev', 'V', 'ver'])
+    async def _SEversion(self):
+        '''
+        Get the actual version of Space Engine
+        '''
+
+        async with aiohttp.get(urlSEversion) as response:
+            soupObject = BeautifulSoup(await response.text(), "html.parser")
+        try:
+            versionName = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='clearfix').find(class_='wpb_wrapper').find(class_='tab-title').find(class_='tab-title-inner').get_text()
+            # versionName contient 'SpaceEngine <numero de version>'
+            version = versionName[12:]
+            await self.bot.say("La version actuelle de Space Engine est la " + version)
+        except:
+            await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
 
 def setup(bot):
