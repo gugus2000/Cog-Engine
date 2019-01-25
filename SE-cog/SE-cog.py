@@ -64,7 +64,7 @@ class SEcog:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
     @_SEcog.command(pass_contex=True, name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
-    async def _SEimage(self, context):
+    async def _SEimage(self, context=False):
         '''
         Get a random image of Space Engine
         '''
@@ -79,7 +79,7 @@ class SEcog:
                 image = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='gallery').find(class_='lightbox_single_portfolio')['href']
                 await self.bot.say("Voici une image de la catégorie " + context + ": " + image)
             except:
-                self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
+                await self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
         else:
             await self.bot.say("La catégorie " + context + " n'est pas valide")
 
