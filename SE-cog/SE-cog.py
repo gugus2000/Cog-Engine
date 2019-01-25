@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from __main__ import send_cmd_help
+from random import randint
 try:  # check if BeautifulSoup4 is installed
     from bs4 import BeautifulSoup
     soupAvailable = True
@@ -10,6 +11,8 @@ import aiohttp
 
 urlSEnews = "http://spaceengine.org/news/"
 urlSEversion = "http://spaceengine.org/download/spaceengine"
+urlSEimage = "http://spaceengine.org/universe/"
+categoryImage = ['planets-and-moons', 'landscapes', 'deep-space', 'real-celestial-object', 'space-ships', 'easy-to-explore', 'modding-abilities', 'gallery']
 
 
 class SEcog:
@@ -59,6 +62,26 @@ class SEcog:
             await self.bot.say("La version actuelle de Space Engine est la " + version)
         except:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
+
+    @_SEcog.command(pass_contex=True, name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
+    async def _SEimage(self, context):
+        '''
+        Get a random image of Space Engine
+        '''
+        if not context:
+            i = randint(0, len(categoryImage)-1)
+            context = categoryImage[i]
+        if context in categoryImage:
+            urlSEimageFull = urlSEimage + context
+            async with aiohttp.get(urlSEimageFull) as response:
+                soupObject = BeautifulSoup(await response.text(), "html.parser")
+            try:
+                image = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='gallery').find(class_='lightbox_single_portfolio')['href']
+                await self.bot.say("Voici une image de la catégorie " + context + ": " + image)
+            except:
+                self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
+        else:
+            await self.bot.say("La catégorie " + context + " n'est pas valide")
 
 
 def setup(bot):
