@@ -76,6 +76,7 @@ class SEcog:
             async with aiohttp.get(urlSEimageFull) as response:
                 soupObject = BeautifulSoup(await response.text(), "html.parser")
             try:
+                image = soupObject.find(class_='wrapper').find(class_='content').find(class_='portfolio_gallery').find('a')['href']
                 await self.bot.say("Voici une image de la catégorie " + context + ": " + image)
             except:
                 await self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
