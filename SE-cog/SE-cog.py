@@ -13,6 +13,7 @@ urlSEnews = "http://spaceengine.org/news/"
 urlSEversion = "http://spaceengine.org/download/spaceengine"
 urlSEimage = "http://spaceengine.org/universe/"
 categoryImage = ['planets-and-moons', 'landscapes', 'deep-space', 'real-celestial-object', 'space-ships', 'easy-to-explore', 'modding-abilities', 'gallery']
+categoryImageNameFR = ['planètes et lunes', 'paysages', 'espace profond', 'objets céleste réels', 'vaisseaux spatiaux', 'outils de prise en main', 'démonstration de modage', 'gallerie']
 
 
 class SEcog:
@@ -63,21 +64,30 @@ class SEcog:
         except:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
-    @_SEcog.command(pass_contex=True, name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
+    @_SEcog.command(name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
     async def _SEimage(self, context=False):
         '''
-        Get a random image of Space Engine
+        Get a random image of Space Engine (or a selected one if arg passed)
+        Categories list: planètes et lunes, paysages, espace profond, objets céleste réels, vaisseaux spatiaux, outils de prise en main, démonstration de modage, gallerie
         '''
         if not context:
             i = randint(0, len(categoryImage)-1)
             context = categoryImage[i]
-        if context in categoryImage:
-            urlSEimageFull = urlSEimage + context
+        if context in categoryImageNameFR:
+            index = categoryImageNameFR.index(context)
+            category = categoryImage[index]
+            urlSEimageFull = urlSEimage + category
             async with aiohttp.get(urlSEimageFull) as response:
                 soupObject = BeautifulSoup(await response.text(), "html.parser")
             try:
-                image = soupObject.find(class_='wrapper').find(class_='content').find(class_='portfolio_gallery').find('a')['href']
-                await self.bot.say("Voici une image de la catégorie " + context + ": " + image)
+                images = soupObject.find(class_='wrapper').find(class_='content').find(class_='portfolio_gallery').find_all('a')['href']
+                j = randint(0, len(images))
+                image = images[j]
+                if j==0:
+                    num = 'ière'
+                else:
+                    num = 'ième'
+                await self.bot.say("Voici la " + j+1 + num + " image de la catégorie " + context + ": " + image)
             except:
                 await self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
         else:
