@@ -65,14 +65,14 @@ class SEcog:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
     @_SEcog.command(name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
-    async def _SEimage(self, context=False):
+    async def _SEimage(self):
         '''
         Get a random image of Space Engine (or a selected one if arg passed)
         Categories list: planètes et lunes, paysages, espace profond, objets céleste réels, vaisseaux spatiaux, outils de prise en main, démonstration de modage, gallerie
         '''
         if not context:
             i = randint(0, len(categoryImage)-1)
-            context = categoryImage[i]
+            context = categoryImageNameFR[i]
         if context in categoryImageNameFR:
             index = categoryImageNameFR.index(context)
             category = categoryImage[index]
