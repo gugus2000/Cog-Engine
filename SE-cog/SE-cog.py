@@ -13,7 +13,7 @@ urlSEnews = "http://spaceengine.org/news/"
 urlSEversion = "http://spaceengine.org/download/spaceengine"
 urlSEimage = "http://spaceengine.org/universe/"
 categoryImage = ['planets-and-moons', 'landscapes', 'deep-space', 'real-celestial-object', 'space-ships', 'easy-to-explore', 'modding-abilities', 'gallery']
-categoryImageNameFR = ['planètes et lunes', 'paysages', 'espace profond', 'objets céleste réels', 'vaisseaux spatiaux', 'outils de prise en main', 'démonstration de modage', 'gallerie']
+categoryImageNameFR = ['planètes-et-lunes', 'paysages', 'espace-profond', 'objets-céleste-réels', 'vaisseaux-spatiaux', 'outils-de-prise-en-main', 'démonstration-de-modage', 'gallerie']
 
 
 class SEcog:
@@ -65,12 +65,12 @@ class SEcog:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
     @_SEcog.command(name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
-    async def _SEimage(self, context):
+    async def _SEimage(self, context=""):
         '''
         Get a random image of Space Engine (or a selected one if arg passed)
-        Categories list: planètes et lunes, paysages, espace profond, objets céleste réels, vaisseaux spatiaux, outils de prise en main, démonstration de modage, gallerie
+        Categories list: planètes-et-lunes, paysages, espace-profond, objets-céleste-réels, vaisseaux-spatiaux, outils-de-prise-en-main, démonstration-de-modage, gallerie
         '''
-        if not context:
+        if context=="":
             i = randint(0, len(categoryImage)-1)
             context = categoryImageNameFR[i]
         if context in categoryImageNameFR:
