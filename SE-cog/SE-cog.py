@@ -65,7 +65,7 @@ class SEcog:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
     @_SEcog.command(name='image', aliases=['i', 'I', 'IMAGE', 'picture', 'images', 'pictures'])
-    async def _SEimage(self):
+    async def _SEimage(self, context):
         '''
         Get a random image of Space Engine (or a selected one if arg passed)
         Categories list: planètes et lunes, paysages, espace profond, objets céleste réels, vaisseaux spatiaux, outils de prise en main, démonstration de modage, gallerie
@@ -80,14 +80,14 @@ class SEcog:
             async with aiohttp.get(urlSEimageFull) as response:
                 soupObject = BeautifulSoup(await response.text(), "html.parser")
             try:
-                images = soupObject.find(class_='wrapper').find(class_='content').find(class_='portfolio_gallery').find_all('a')['href']
-                j = randint(0, len(images))
-                image = images[j]
+                images = soupObject.find(class_='wrapper').find(class_='content').find(class_='portfolio_gallery').find_all('a')
+                j = randint(0, len(images)-1)
+                image = images[j]['href']
                 if j==0:
                     num = 'ière'
                 else:
                     num = 'ième'
-                await self.bot.say("Voici la " + j+1 + num + " image de la catégorie " + context + ": " + image)
+                await self.bot.say("Voici la " + str(j+1) + num + " image de la catégorie " + context + ": " + image)
             except:
                 await self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
         else:
