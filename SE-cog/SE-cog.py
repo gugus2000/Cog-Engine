@@ -57,10 +57,10 @@ class SEcog:
         async with aiohttp.get(urlSEversion) as response:
             soupObject = BeautifulSoup(await response.text(), "html.parser")
         try:
-            versionName = soupObject.find(class_='wrapper').find(class_='container').find(class_='clearfix').find(class_='section').find(class_='vc_col-sm-6').find(class_='qbutton').find(class_='text_holder').span[1].get_text()
+            versionName = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='clearfix').contents[8].find(class_='qbutton').get_text()
             # versionName contient 'SpaceEngine <numero de version> on steam'
-            version = versionName[12:18]
-            await self.bot.say("La version actuelle de Space Engine est la " + version)
+            version = versionName[13:18]
+            await self.bot.say("La version actuelle de Space Engine est la **" + version + "**")
         except:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
 
@@ -92,6 +92,14 @@ class SEcog:
                 await self.bot.say("L'information n'existe pas: la page " + urlSEimageFull + " a été supprimée ou son architecture modifiée.")
         else:
             await self.bot.say("La catégorie " + context + " n'est pas valide")
+
+    @_SEcog.command(pass_context=True, name='link', aliases=['l', 'SEL', 'sel', 'L', 'link'])
+    async def _SEversion(self):
+        '''
+        Get some useful links about Space Engine
+        '''
+
+        await self.bot.say("Site officiel de Space Engine: http://spaceengine.org\n Achète Space Engine sur steam ici: https://store.steampowered.com/app/314650/SpaceEngine/\n Reddit de Space Engine: https://www.reddit.com/r/spaceengine/\n Discord de Space Engine: https://discordapp.com/invite/spaceengine")
 
 
 def setup(bot):
