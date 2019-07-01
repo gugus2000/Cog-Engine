@@ -93,8 +93,8 @@ class SEcog:
         else:
             await self.bot.say("La catégorie " + context + " n'est pas valide")
 
-    @_SEcog.command(pass_context=True, name='link', aliases=['l', 'SEL', 'sel', 'L', 'link'])
-    async def _SEversion(self):
+    @_SEcog.command(pass_context=True, name='link', aliases=['l', 'SEL', 'sel', 'L'])
+    async def _SElink(self):
         '''
         Get some useful links about Space Engine
         '''
