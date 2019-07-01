@@ -10,7 +10,7 @@ except:
 import aiohttp
 
 urlSEnews = "http://spaceengine.org/news/"
-urlSEversion = "http://spaceengine.org/download/spaceengine"
+urlSEversion = "http://spaceengine.org/"
 urlSEimage = "http://spaceengine.org/universe/"
 categoryImage = ['planets-and-moons', 'landscapes', 'deep-space', 'real-celestial-object', 'space-ships', 'easy-to-explore', 'modding-abilities', 'gallery']
 categoryImageNameFR = ['planètes-et-lunes', 'paysages', 'espace-profond', 'objets-céleste-réels', 'vaisseaux-spatiaux', 'outils-de-prise-en-main', 'démonstration-de-modage', 'gallerie']
@@ -57,9 +57,9 @@ class SEcog:
         async with aiohttp.get(urlSEversion) as response:
             soupObject = BeautifulSoup(await response.text(), "html.parser")
         try:
-            versionName = soupObject.find(class_='wrapper').find(class_='content').find(class_='container').find(class_='clearfix').find(class_='wpb_wrapper').find(class_='tab-title').find(class_='tab-title-inner').get_text()
-            # versionName contient 'SpaceEngine <numero de version>'
-            version = versionName[12:]
+            versionName = soupObject.find(class_='wrapper').find(class_='container').find(class_='clearfix').find(class_='section').find(class_='vc_col-sm-6').find(class_='qbutton').find(class_='text_holder').span[1].get_text()
+            # versionName contient 'SpaceEngine <numero de version> on steam'
+            version = versionName[12:18]
             await self.bot.say("La version actuelle de Space Engine est la " + version)
         except:
             await self.bot.say("L'information n'existe pas: la page " + urlSEversion + " a été supprimée ou son architecture modifiée.")
