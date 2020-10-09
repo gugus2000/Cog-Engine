@@ -126,21 +126,24 @@ class Rules(commands.Cog):
     async def listrule(self, ctx):
         """List rules of this server"""
         rules=await self.RuleManager.getStorage()
-        messages=[]
-        count=0
-        for rule in rules:
-            if rule["guild"]==ctx.message.guild.id:
-                message=await ut.ruleToString(rule, count)
-                messages.append(message)
-                count+=1
-        pages=[]
-        for page in utils.chat_formatting.pagify("\n\n".join(messages), ["\n\n"], page_length=1000):
-            pages.append(page)
-        await utils.menus.menu(ctx, pages, {
-            "\N{LEFTWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}": utils.menus.prev_page,
-            "\N{CROSS MARK}": utils.menus.close_menu,
-            "\N{BLACK RIGHTWARDS ARROW}\N{VARIATION SELECTOR-16}": utils.menus.next_page,
-        })
+        if len(rules)!=0:
+            messages=[]
+            count=0
+            for rule in rules:
+                if rule["guild"]==ctx.message.guild.id:
+                    message=await ut.ruleToString(rule, count)
+                    messages.append(message)
+                    count+=1
+            pages=[]
+            for page in utils.chat_formatting.pagify("\n\n".join(messages), ["\n\n"], page_length=1000):
+                pages.append(page)
+            await utils.menus.menu(ctx, pages, {
+                "\N{LEFTWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}": utils.menus.prev_page,
+                "\N{CROSS MARK}": utils.menus.close_menu,
+                "\N{BLACK RIGHTWARDS ARROW}\N{VARIATION SELECTOR-16}": utils.menus.next_page,
+            })
+        else:
+            await ctx.send("No defined rules in this server")
 
     @commands.command()
     @checks.admin()
@@ -176,21 +179,33 @@ class Rules(commands.Cog):
 
         event=await askthing(ut.events, "event")
 
-        message=utils.chat_formatting.question("With how many conditions ?\n")
-        await ctx.send(message)
-        number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+        number=None
+        while not number is int:
+            message=utils.chat_formatting.question("With how many conditions ?\n")
+            await ctx.send(message)
+            number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+            try:
+                number=int(number.content)
+            except ValueError:
+                ctx.send("Please, enter an integer")
 
         conditions=[]
-        for i in range(int(number.content)):
+        for i in range(number):
             condition=await askthing(ut.conditions, "condition")
             conditions.append(condition)
 
-        message=utils.chat_formatting.question("With how many effects ?\n")
-        await ctx.send(message)
-        number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+        number=None
+        while not number is int:
+            message=utils.chat_formatting.question("With how many effects ?\n")
+            await ctx.send(message)
+            number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+            try:
+                number=int(number.content)
+            except ValueError:
+                ctx.send("Please, enter an integer")
 
         effects=[]
-        for i in range(int(number.content)):
+        for i in range(number):
            effect=await askthing(ut.effects, "effect")
            effects.append(effect)
 
@@ -216,30 +231,40 @@ class Rules(commands.Cog):
             await ctx.send("Which rule do you want to delete?")
             arg=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
             args.append(arg.content)
-        number=int(args[0])
+
+        while not args[0] is int:
+            try:
+                number=int(args[0])
+            except ValueError:
+                ctx.send("Please, enter an integer")
+
         rules=await self.RuleManager.getStorage()
-        count, real_count=0, 0
-        for rule in rules:
-            if count==number:
-                break
-            if rule["guild"]==ctx.message.guild.id:
-                count+=1
-            real_count+=1
-        if count!=number:
-            await ctx.send("Error: index out of bound")
-        else:
-            str_rule=await ut.ruleToString(rules[real_count], count)
-            await ctx.send("Are you sure you want to delete this ?\n"+str_rule)
-            pred=utils.predicates.MessagePredicate.yes_or_no(ctx)
-            await self.bot.wait_for("message", check=pred)
-            result=pred.result
-            if result:
-                del rules[real_count]
-                await self.RuleManager.setStorage(rules)
-                await self.RuleManager.applyStorage(self.bot)
-                await ctx.send("Rule deleted")
+        if len(rules)!=0:
+            count, real_count=0, 0
+            for rule in rules:
+                if count==number:
+                    break
+                if rule["guild"]==ctx.message.guild.id:
+                    count+=1
+                real_count+=1
+            if count!=number:
+                await ctx.send("Cannot delete a rule that doesn't exist")
             else:
-                await ctx.send("No rule deleted")
+                str_rule=await ut.ruleToString(rules[real_count], count)
+                message=await ctx.send("Are you sure you want to delete this rule ?\n"+str_rule)
+                pred=utils.predicates.MessagePredicate.yes_or_no(ctx)
+                await self.bot.wait_for("message", check=pred)
+                await message.delete()
+                result=pred.result
+                if result:
+                    del rules[real_count]
+                    await self.RuleManager.setStorage(rules)
+                    await self.RuleManager.applyStorage(self.bot)
+                    await ctx.send("Rule deleted")
+                else:
+                    await ctx.send("No rule deleted")
+        else:
+            await ctx.send("No defined rules in this server")
 
     @commands.command()
     @checks.is_owner()
