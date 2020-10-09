@@ -1,0 +1,16 @@
+{
+	"author": ["gugus2000 (gugus2000#5074)"],
+	"description": "A cog which allows an administrator of the server to define rules for his server. A rule is defined by an event, which will trigger the rule, conditions, which will be checked, and lastly events, which will be executed if all the conditions are checked. Concretely, this allows you, for example, to automatically ban, mute someone who has a bad nickname. It can also be used to send message at join, or even make reaction role (it is not optimized for that)",
+	"name": "Rules",
+	"install_msg": "You installed the rules cog. To add a rule to your server, do [p]addrule, to delete one, do [p]deleterule. To list all the rules, do [p]listrule.",
+	"short": "Manage and apply automatic rules in your server",
+	"end_user_data_statement": "No user data is stored by this cog",
+	"min_bot_version": "3.1.0",
+	"max_bot_version": "3.4.0",
+	"min_python_version": [3, 7, 0],
+	"hidden": false,
+	"disabled": false,
+	"tags": ["moderation", "utility"],
+	"requirements": ["json", "os", "sys", "inspect", "time", "re", "datetime", "ast", "copy"],
+	"type": "COG"
+}
