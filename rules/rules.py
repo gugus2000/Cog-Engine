@@ -37,30 +37,33 @@ class Rulemanager:
         return self.storage
 
     async def applyStorage(self, bot):
-        self.rules=[]
-        for rule in self.storage:
-            if rule["event"]["type"] in ut.events:
-                args=await ut.checkArgs(bot, rule["event"]["args"], ut.events[rule["event"]["type"]]["args"])
-                event=ut.events[rule["event"]["type"]]["class"](*tuple(args))
-            else:
-                raise Exception(rule["event"]["type"]+" is not not an event")
-            conditions=[]
-            for condition in rule["conditions"]:
-                if condition["type"] in ut.conditions:
-                    args=await ut.checkArgs(bot, condition["args"], ut.conditions[condition["type"]]["args"])
-                    conditions.append(ut.conditions[condition["type"]]["class"](*tuple(args)))
+        try:
+            self.rules=[]
+            for rule in self.storage:
+                if rule["event"]["type"] in ut.events:
+                    args=await ut.checkArgs(bot, rule["event"]["args"], ut.events[rule["event"]["type"]]["args"])
+                    event=ut.events[rule["event"]["type"]]["class"](*tuple(args))
                 else:
-                    raise Exception(condition["type"]+" is not a condition")
-            effects=[]
-            for effect in rule["effects"]:
-                if effect["type"] in ut.effects:
-                    args=await ut.checkArgs(bot, effect["args"], ut.effects[effect["type"]]["args"])
-                    effects.append(ut.effects[effect["type"]]["class"](*tuple(args)))
-                else:
-                    raise Exception(condition["type"]+" is not an effect")
-            guild=bot.get_guild(int(rule["guild"]))
-            rule=Rule(guild, event, conditions, effects)
-            await self.add(rule)
+                    raise ut.RulesError(rule["event"]["type"]+" is not not an event")
+                conditions=[]
+                for condition in rule["conditions"]:
+                    if condition["type"] in ut.conditions:
+                        args=await ut.checkArgs(bot, condition["args"], ut.conditions[condition["type"]]["args"])
+                        conditions.append(ut.conditions[condition["type"]]["class"](*tuple(args)))
+                    else:
+                        raise ut.RulesError(condition["type"]+" is not a condition")
+                effects=[]
+                for effect in rule["effects"]:
+                    if effect["type"] in ut.effects:
+                        args=await ut.checkArgs(bot, effect["args"], ut.effects[effect["type"]]["args"])
+                        effects.append(ut.effects[effect["type"]]["class"](*tuple(args)))
+                    else:
+                        raise ut.RulesError(condition["type"]+" is not an effect")
+                guild=bot.get_guild(int(rule["guild"]))
+                rule=Rule(guild, event, conditions, effects)
+                await self.add(rule)
+        except ut.RulesError as err:
+            print("an error occured:", err) # I don't know a better way to handle this error, because I can't send a message without any context
 
     async def saveStorage(self):
         storage=await self.getStorage()
@@ -152,12 +155,15 @@ class Rules(commands.Cog):
         async def askargs(dictionnary):
             args=[]
             for arg in dictionnary:
-                message="Enter a "+arg["type"]+" value for "+arg["name"]+"\n"
-                message+=utils.chat_formatting.inline(arg["description"])
-                await ctx.send(message)
-                value=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
-                value=await ut.validArg(value.content, arg["type"])
-                args.append(value)
+                try:
+                    message="Enter a "+arg["type"]+" value for "+arg["name"]+"\n"
+                    message+=utils.chat_formatting.inline(arg["description"])
+                    await ctx.send(message)
+                    value=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+                    value=await ut.validArg(value.content, arg["type"])
+                    args.append(value)
+                except ut.RulesError as err:
+                    await ctx.send("An error ocurred, please try again:", err)
             return args
         async def askthing(dictionnary, name):
             thing={}
@@ -186,8 +192,9 @@ class Rules(commands.Cog):
             number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
             try:
                 number=int(number.content)
+                print(type(number))
             except ValueError:
-                ctx.send("Please, enter an integer")
+                await ctx.send("Please, enter an integer")
 
         conditions=[]
         for i in range(number):
@@ -202,7 +209,7 @@ class Rules(commands.Cog):
             try:
                 number=int(number.content)
             except ValueError:
-                ctx.send("Please, enter an integer")
+                await ctx.send("Please, enter an integer")
 
         effects=[]
         for i in range(number):
@@ -236,7 +243,7 @@ class Rules(commands.Cog):
             try:
                 number=int(args[0])
             except ValueError:
-                ctx.send("Please, enter an integer")
+                await ctx.send("Please, enter an integer")
 
         rules=await self.RuleManager.getStorage()
         if len(rules)!=0:

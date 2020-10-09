@@ -5,6 +5,9 @@ import datetime
 import ast
 import copy
 
+class RulesError(Exception):
+    pass
+
 async def checkArg(value, type_):
     if value=="None":
         return None
@@ -21,7 +24,7 @@ async def checkArg(value, type_):
             elif type(value) is list:
                 return value
             else:
-                raise Exception(value.__class__.__name__+" cannot be converted to a list")
+                raise RulesError(value.__class__.__name__+" cannot be converted to a list")
         elif type_=="dict":
             if type(value) is str:
                 value=ast.literal_eval(value)
@@ -29,9 +32,9 @@ async def checkArg(value, type_):
             elif type(value) is dict:
                 return value
             else:
-                raise Exception(value.__class__.__name__+" cannot be converted to a dict")
+                raise RulesError(value.__class__.__name__+" cannot be converted to a dict")
         else:
-            raise Exception(type_+" is an unknown type")
+            raise RulesError(type_+" is an unknown type")
 
 async def validArg(str_value, type_):
     value=await checkArg(str_value, type_)
@@ -42,7 +45,7 @@ async def validArg(str_value, type_):
 async def checkArgs(bot, args, dictionary):
     return_args=[bot]
     if len(dictionary)!=len(args):
-        raise Exception("Mismatch between the number of arguments expected ("+str(len(dictionary))+") and those given ("+str(len(args))+")")
+        raise RulesError("Mismatch between the number of arguments expected ("+str(len(dictionary))+") and those given ("+str(len(args))+")")
     for i in range(len(dictionary)):
         arg=await checkArg(args[i], dictionary[i]["type"])
         return_args.append(arg)
@@ -246,7 +249,7 @@ class InDenyList:
         elif isinstance(data, discord.Member):
             haystack=data.name
         else:
-            raise Exception("Cannot use a denylist with this type of content")
+            raise RulesError("Cannot use a denylist with this type of content")
         for denyword in self.denylist:
             if re.search(r"(?:^|\W)"+denyword+r"(?:$|\W)", haystack)!=None:
                 return True
@@ -264,7 +267,7 @@ class NotInAllowList:
         elif isinstance(data, discord.Member):
             haystack=data.name
         else:
-            raise Exception("Cannot use a denylist with this type of content")
+            raise RulesError("Cannot use an allowlist with this type of content")
         for allowword in self.allowlist:
             if re.search(r"(?:^|\W)"+allowword+r"(?:$|\W)", haystack)!=None:
                 return False
@@ -346,18 +349,18 @@ class SendEmbedMessage:
                     dict_embed["author"]["name"]=dict_embed["author"]["name"][:253]+"..."
                 dict_embed["author"]["name"]=await formatVar(dict_embed["author"]["name"], data)
             else:
-                raise Exception("Name is a necessary argument to set_author")
+                raise RulesError("Name is a necessary argument to set_author")
             embed.set_author(**dict_embed["author"])
         if "fields" in dict_embed:
             if len(dict_embed["fields"])>25:
-                raise Exception("An embed message cannot contains more than 25 fields")
+                raise RulesError("An embed message cannot contains more than 25 fields")
             for field in dict_embed["fields"]:
                 if not "name" in field:
-                    raise Exception("A field must contains a name")
+                    raise RulesError("A field must contains a name")
                 if len(field["name"])>256:
                     field["name"]=field["name"][:253]+"..."
                 if not "value" in field:
-                    raise Exception("A field must contains a value")
+                    raise RulesError("A field must contains a value")
                 if len(field["value"])>1024:
                     field["value"]=field["value"][:1021]+"..."
                 if "inline" in field:
