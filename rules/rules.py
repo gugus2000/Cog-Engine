@@ -90,15 +90,19 @@ class Rule:
         return await self.event.get()
 
     async def execute(self, data):
-       data=await self.event.wait(data)
-       if data:
-           for condition in self.conditions:
-               if not await condition.check(data):
+        data={}
+        data["event"]=await self.event.wait(data)
+        if data:
+            data["conditions"]=[]
+            for condition in self.conditions:
+                data_cond=await condition.check(data["event"])
+                if not data_cond:
                     return False
-           for effect in self.effects:
+                data["conditions"].append(data_cond)
+            for effect in self.effects:
                 await effect.execute(data)
-           return True
-       return False
+            return True
+        return False
 
 """
 Main script
@@ -186,7 +190,7 @@ class Rules(commands.Cog):
         event=await askthing(ut.events, "event")
 
         number=None
-        while not number is int:
+        while not isinstance(number, int):
             message=utils.chat_formatting.question("With how many conditions ?\n")
             await ctx.send(message)
             number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
@@ -202,7 +206,7 @@ class Rules(commands.Cog):
             conditions.append(condition)
 
         number=None
-        while not number is int:
+        while not isinstance(number, int):
             message=utils.chat_formatting.question("With how many effects ?\n")
             await ctx.send(message)
             number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
@@ -234,14 +238,18 @@ class Rules(commands.Cog):
     async def deleterule(self, ctx):
         """Delete a rule"""
         args=await ut.parseArgs(ctx)
-        if len(args)==0:
-            await ctx.send("Which rule do you want to delete?")
-            arg=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
-            args.append(arg.content)
+        number=None
+        while not isinstance(number, int):
+            if len(args)>0:
+                number=args[0]
+                del args[0]
+            else:
+                await ctx.send("Which rule do you want to delete?")
+                arg=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+                number=arg.content
 
-        while not args[0] is int:
             try:
-                number=int(args[0])
+                number=int(number)
             except ValueError:
                 await ctx.send("Please, enter an integer")
 

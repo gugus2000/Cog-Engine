@@ -89,8 +89,13 @@ async def parseArgs(ctx):
     content=ctx.message.content[len_prefix:]
     return content.split()
 
-async def formatVar(string, data):
-    return string.format(**{"data": data})
+async def formatVar(string, bot, data):
+    for element in data:
+        if element=="event":
+            string=string.format(**{"event": data["event"]})
+        elif element=="conditions":
+            string=string.format(**{"conditions": data["conditions"]})
+    return string.format(**{"bot": bot})
 
 """
 Things definition
@@ -233,6 +238,7 @@ class Contains:
         self.regex=regex
 
     async def check(self, message):
+        print(message)
         if re.search(self.regex, message.content):
             return True
         return False
@@ -282,11 +288,12 @@ class SendMessage:
 
     def __init__(self, bot,  message, channel=None):
         self.message=message
+        self.bot=bot
         self.channel=bot.get_channel(channel)
 
     async def process(self, data):
         channel=self.channel
-        message=await formatVar(self.message, data)
+        message=await formatVar(self.message, self.bot, data)
         if isinstance(data, discord.message.Message):
             channel=data.channel
         if self.channel==None:
@@ -321,11 +328,11 @@ class SendEmbedMessage:
         if "title" in dict_embed:
             if len(dict_embed["title"])>256:
                 dict_embed["title"]=dict_embed["title"][:253]+"..."
-            dict_embed["title"]=await formatVar(dict_embed["title"], data)
+            dict_embed["title"]=await formatVar(dict_embed["title"], self.bot, data)
         if "description" in dict_embed:
             if len(dict_embed["description"])>2048:
                 dict_embed["description"]=dict_embed["description"][:2045]+"..."
-            dict_embed["description"]=await formatVar(dict_embed["description"], data)
+            dict_embed["description"]=await formatVar(dict_embed["description"], self.bot, data)
         if "colour" in dict_embed:
             dict_embed["colour"]=dicord.Colour(int(dict_embed["colour"]))
         if "timestamp" not in dict_embed:
@@ -337,17 +344,17 @@ class SendEmbedMessage:
             if "text" in dict_embed["footer"]:
                 if len(dict_embed["footer"]["text"])>2048:
                     dict_embed["footer"]["text"]=dict_embed["footer"]["text"][:2045]+"..."
-            dict_embed["footer"]["text"]=await formatVar(dict_embed["footer"]["text"], data)
+            dict_embed["footer"]["text"]=await formatVar(dict_embed["footer"]["text"], self.bot, data)
             embed.set_footer(**dict_embed["footer"])
         if "image" in dict_embed:
-            embed.set_image(await formatVar(dict_embed["image"],data))
+            embed.set_image(await formatVar(dict_embed["image"], self.bot, data))
         if "thumbnail" in dict_embed:
             embed.set_thumbnail(**dict_embed["thumbnail"])
         if "author" in dict_embed:
             if "name" in dict_embed["author"]:
                 if len(dict_embed["author"]["name"])>256:
                     dict_embed["author"]["name"]=dict_embed["author"]["name"][:253]+"..."
-                dict_embed["author"]["name"]=await formatVar(dict_embed["author"]["name"], data)
+                dict_embed["author"]["name"]=await formatVar(dict_embed["author"]["name"], self.bot, data)
             else:
                 raise RulesError("Name is a necessary argument to set_author")
             embed.set_author(**dict_embed["author"])
@@ -365,8 +372,8 @@ class SendEmbedMessage:
                     field["value"]=field["value"][:1021]+"..."
                 if "inline" in field:
                     field["inline"]=bool(field["inline"])
-                field["name"]=await formatVar(field["name"], data)
-                field["value"]=await formatVar(field["value"], data)
+                field["name"]=await formatVar(field["name"], self.bot, data)
+                field["value"]=await formatVar(field["value"], self.bot, data)
                 embed.add_field(**field)
 
         if isinstance(data, discord.message.Message):
@@ -402,7 +409,7 @@ class ChangeUsername:
         self.username=username
 
     async def execute(self, data: discord.Member):
-        username=await formatVar(self.username, data)
+        username=await formatVar(self.username, self.bot, data)
         await data.edit(nick=username)
 
 class Mute:
