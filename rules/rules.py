@@ -16,7 +16,7 @@ from redbot.core import commands, checks, bot, utils
 cmd_json_file = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"storage.json")))
 
 class Rulemanager:
-
+    """The link between data and process"""
     def __init__(self):
         self.rules=[]
         self.storage=[]
@@ -64,10 +64,11 @@ class Rulemanager:
                 await self.add(rule)
         except ut.RulesError as err:
             print("an error occured:", err) # I don't know a better way to handle this error, because I can't send a message without any context
+        except Exception as err:
+            print("an unhandled error occured:", err)
 
     async def saveStorage(self):
         storage=await self.getStorage()
-        print(storage)
         json_data=json.dumps({
             "rules": storage
         })
@@ -79,7 +80,7 @@ class Rulemanager:
             await self.setStorage(json.load(json_file)["rules"])
 
 class Rule:
-
+    """Contains an event, some conditions and at least an effect"""
     def __init__(self, guild, event, conditions, effects):
         self.guild=guild
         self.event=event
@@ -89,16 +90,16 @@ class Rule:
     async def getEvent(self):
         return await self.event.get()
 
-    async def execute(self, data):
+    async def execute(self, trigger):
         data={}
-        data["event"]=await self.event.wait(data)
+        data['event']=await self.event.wait(trigger)
         if data:
-            data["conditions"]=[]
+            data['conditions']=[]
             for condition in self.conditions:
-                data_cond=await condition.check(data["event"])
-                if not data_cond:
+                result_cond=await condition.check(data['event'])
+                if not result_cond:
                     return False
-                data["conditions"].append(data_cond)
+                data["conditions"].append(result_cond[1])
             for effect in self.effects:
                 await effect.execute(data)
             return True
@@ -156,18 +157,28 @@ class Rules(commands.Cog):
     @checks.admin()
     async def addrule(self, ctx):
         """Add a rule for this guild"""
+        await ctx.send("Creation of a new rule, type \"cancel\" anytime to cancel it")
         async def askargs(dictionnary):
             args=[]
             for arg in dictionnary:
-                try:
-                    message="Enter a "+arg["type"]+" value for "+arg["name"]+"\n"
-                    message+=utils.chat_formatting.inline(arg["description"])
-                    await ctx.send(message)
-                    value=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
-                    value=await ut.validArg(value.content, arg["type"])
-                    args.append(value)
-                except ut.RulesError as err:
-                    await ctx.send("An error ocurred, please try again:", err)
+                iserr=True
+                while iserr:
+                    try:
+                        message="Enter a "+arg["type"]+" value for "+arg["name"]+"\n"
+                        message+=utils.chat_formatting.inline(arg["description"])
+                        await ctx.send(message)
+                        value=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+                        if value.content=="cancel":
+                            return "cancel"
+                        if "converter" in arg:
+                            value=await ut.paramMessageConvert(ctx, value, arg["converter"])
+                        else:
+                            value=value.content
+                        value=await ut.validArg(value, arg["type"])
+                        iserr=False
+                        args.append(value)
+                    except ut.RulesError as err:
+                        await ctx.send("An error ocurred, please try again: "+str(err))
             return args
         async def askthing(dictionnary, name):
             thing={}
@@ -181,28 +192,37 @@ class Rules(commands.Cog):
                 await ctx.send(message)
                 value=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
                 str_thing=value.content
+                if str_thing=="cancel":
+                    return "cancel"
                 if str_thing not in dictionnary:
                     await ctx.send(str_thing+" is not a "+name)
             thing["type"]=str_thing
             thing["args"]=await askargs(dictionnary[str_thing]["args"])
+            if thing["args"]=="cancel":
+                return "cancel"
             return thing
 
         event=await askthing(ut.events, "event")
+        if event=="cancel":
+            return None
 
         number=None
         while not isinstance(number, int):
             message=utils.chat_formatting.question("With how many conditions ?\n")
             await ctx.send(message)
             number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+            if number.content=="cancel":
+                return None
             try:
                 number=int(number.content)
-                print(type(number))
             except ValueError:
                 await ctx.send("Please, enter an integer")
 
         conditions=[]
         for i in range(number):
             condition=await askthing(ut.conditions, "condition")
+            if condition=="cancel":
+                return None
             conditions.append(condition)
 
         number=None
@@ -210,6 +230,8 @@ class Rules(commands.Cog):
             message=utils.chat_formatting.question("With how many effects ?\n")
             await ctx.send(message)
             number=await self.bot.wait_for("message", check=utils.predicates.MessagePredicate.same_context(ctx))
+            if number.content=="cancel":
+                return None
             try:
                 number=int(number.content)
             except ValueError:
@@ -218,6 +240,8 @@ class Rules(commands.Cog):
         effects=[]
         for i in range(number):
            effect=await askthing(ut.effects, "effect")
+           if effect=="cancel":
+               return None
            effects.append(effect)
 
         rulesdata=await self.RuleManager.getStorage()
@@ -262,7 +286,7 @@ class Rules(commands.Cog):
                 if rule["guild"]==ctx.message.guild.id:
                     count+=1
                 real_count+=1
-            if count!=number:
+            if count<number:
                 await ctx.send("Cannot delete a rule that doesn't exist")
             else:
                 str_rule=await ut.ruleToString(rules[real_count], count)
@@ -310,3 +334,7 @@ class Rules(commands.Cog):
     async def on_connect(self):
         await self.init()
         await self.RuleManager.check(None, "connect", self.bot)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        await self.RuleManager.check(payload.member.guild, "reaction", payload)

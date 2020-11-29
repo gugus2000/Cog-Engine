@@ -8,6 +8,73 @@ import copy
 class RulesError(Exception):
     pass
 
+async def convToTextChannel(textchannel: discord.TextChannel):
+    if isinstance(textchannel, discord.TextChannel):
+        return textchannel
+    else:
+        raise RulesError("Cannot convert "+str(textchannel)+" to a TextChannel")
+
+async def convToRole(role: discord.Role):
+    if isinstance(role, discord.Role):
+        return role
+    else:
+        raise RulesError("Cannot convert "+str(role)+" to a Role")
+
+async def convToEmoji(ctx, emoji: discord.Emoji):
+    if isinstance(emoji, discord.Emoji):
+        return emoji
+    else:
+        converter=discord.ext.commands.EmojiConverter()
+        convertedEmoji=await converter.convert(ctx, emoji)
+        if isinstance(convertedEmoji, discord.Emoji):
+            return convertedEmoji
+        else:
+            raise RulesError("Cannot convert "+str(emoji)+" to an Emoji")
+
+async def stringConvert(ctx, str_value, to_convert):
+    if "role" in to_convert:
+        return await convToRole(str_value)
+    elif "textchannel" in to_convert:
+        return await convToTextChannel(str_value)
+    elif "emoji" in to_convert:
+        return await convToEmoji(ctx, str_value)
+    else:
+        raise RulesError("Cannot convert "+str(str_value)+" to "+str(to_convert))
+
+async def paramMessageConvert(ctx, message, to_convert):
+    obj=[]
+    if "role" in to_convert:
+        if len(message.role_mentions)>0:
+            obj=message.role_mentions
+            if "list" not in to_convert:
+                obj=obj[0]
+    if "textchannel" in to_convert:
+        channels=[channel for channel in message.channel_mentions if isinstance(channel, discord.TextChannel)]
+        if len(channels)>0:
+            obj=channels
+            if "list" not in to_convert:
+                obj=obj[0]
+    if "list" in to_convert:
+        for str_value in message.content.split(","):
+            for str_value in str_value.split():
+                obj.append(await stringConvert(ctx, str_value, to_convert))
+    else:
+        if obj==[]:
+            obj=await stringConvert(ctx, message.content, to_convert)
+    if "id" in to_convert:
+        if "list" in to_convert:
+            result=[element.id for element in obj]
+        else:
+            result=obj.id
+    elif "name" in to_convert:
+        if "list" in to_convert:
+            result=[element.name for element in obj]
+        else:
+            result=obj.name
+    else:
+        raise RulesError("Unknwon attributes to convert")
+    return result
+
 async def checkArg(value, type_):
     if value=="None":
         return None
@@ -56,7 +123,7 @@ async def ruleToString(rule, count):
     string+=await eventToString(rule["event"])
     string+=await conditionsToString(rule["conditions"])
     string+=await effectsToString(rule["effects"])
-    string+="--------------------------"
+    string+="--------------------------"+len(str(count))*"-"
     return string
 
 async def eventToString(event):
@@ -90,12 +157,8 @@ async def parseArgs(ctx):
     return content.split()
 
 async def formatVar(string, bot, data):
-    for element in data:
-        if element=="event":
-            string=string.format(**{"event": data["event"]})
-        elif element=="conditions":
-            string=string.format(**{"conditions": data["conditions"]})
-    return string.format(**{"bot": bot})
+    data['bot']=bot
+    return string.format(**data)
 
 """
 Things definition
@@ -211,6 +274,23 @@ class Join:
     async def get(sef):
         return "join"
 
+class ReactionAdd:
+    """Trigger when someone react on a message"""
+
+    def __init__(self, reaction, message, bot):
+        this.reaction=reaction
+        this.message=message
+
+    async def wait(self, payload):
+        if payload.message_id!=self.message:
+            return False
+        if payload.emoji.name!=self.reaction:
+            return False
+        return payload.member
+
+    async def get(self):
+        return "reaction"
+
 
 """
 Condition to apply the effects
@@ -222,13 +302,16 @@ class HasUsername:
     def __init__(self, bot, regex):
         self.regex=regex
 
-    async def check(self, data):
-        if isinstance(data, discord.message.Message):
-            name=data.author.name
-        elif isinstance(data, dicord.Member):
-            name=data.name
-        if re.search(self.regex, name):
-            return True
+    async def check(self, data: discord.Member):
+        name=data.name
+        result=re.search(self.regex, name)
+        if result!=None:
+            conditiondata={
+                'regex': self.regex,
+                'position': result.span(),
+                'match': result.group()
+            }
+            return True, conditiondata
         return False
 
 class Contains:
@@ -237,10 +320,15 @@ class Contains:
     def __init__(self, bot, regex):
         self.regex=regex
 
-    async def check(self, message):
-        print(message)
-        if re.search(self.regex, message.content):
-            return True
+    async def check(self, message: discord.Message):
+        result=re.search(self.regex, message.content)
+        if result!=None:
+            conditiondata={
+                'regex': self.regex,
+                'position': result.span(),
+                'match': result.group()
+            }
+            return True, conditiondata
         return False
 
 class InDenyList:
@@ -250,15 +338,24 @@ class InDenyList:
         self.denylist=denylist
 
     async def check(self, data):
-        if isinstance(data, discord.message.Message):
+        if isinstance(data, discord.Message):
             haystack=data.content
         elif isinstance(data, discord.Member):
             haystack=data.name
+        elif type(data) is bool:
+            haystack=""
         else:
-            raise RulesError("Cannot use a denylist with this type of content")
+            raise RulesError("Cannot use a denylist with this type of content: "+str(type(data)))
         for denyword in self.denylist:
-            if re.search(r"(?:^|\W)"+denyword+r"(?:$|\W)", haystack)!=None:
-                return True
+            result=re.search(r"(?:^|\W)"+denyword+r"(?:$|\W)", haystack)
+            if result!=None:
+                conditiondata={
+                    'word': denyword,
+                    'position': result.span(),
+                    'match': result.group(),
+                    'list': self.denylist
+                }
+                return True, conditiondata
         return False
 
 class NotInAllowList:
@@ -268,16 +365,19 @@ class NotInAllowList:
         self.allowlist=allowlist
 
     async def check(self, data):
-        if isinstance(data, discord.message.Message):
+        if isinstance(data, discord.Message):
             haystack=data.content
         elif isinstance(data, discord.Member):
             haystack=data.name
         else:
-            raise RulesError("Cannot use an allowlist with this type of content")
+            raise RulesError("Cannot use an allowlist with this type of content: "+str(type(data)))
         for allowword in self.allowlist:
             if re.search(r"(?:^|\W)"+allowword+r"(?:$|\W)", haystack)!=None:
                 return False
-        return True
+        conditiondata={
+            'list': self.allowlist
+        }
+        return True, conditiondata
 
 """
 The effect taken
@@ -294,7 +394,7 @@ class SendMessage:
     async def process(self, data):
         channel=self.channel
         message=await formatVar(self.message, self.bot, data)
-        if isinstance(data, discord.message.Message):
+        if isinstance(data, discord.Message):
             channel=data.channel
         if self.channel==None:
             return await channel.send(message)
@@ -357,6 +457,8 @@ class SendEmbedMessage:
                 dict_embed["author"]["name"]=await formatVar(dict_embed["author"]["name"], self.bot, data)
             else:
                 raise RulesError("Name is a necessary argument to set_author")
+            if "icon_url" in dict_embed["author"]:
+                dict_embed["author"]["icon_url"]=await formatVar(dict_embed["author"]["icon_url"], self.bot, data)
             embed.set_author(**dict_embed["author"])
         if "fields" in dict_embed:
             if len(dict_embed["fields"])>25:
@@ -376,7 +478,7 @@ class SendEmbedMessage:
                 field["value"]=await formatVar(field["value"], self.bot, data)
                 embed.add_field(**field)
 
-        if isinstance(data, discord.message.Message):
+        if isinstance(data, discord.Message):
             channel=data.channel
         if self.channel==None:
             return await channel.send(embed=embed)
@@ -413,9 +515,9 @@ class ChangeUsername:
         await data.edit(nick=username)
 
 class Mute:
-    """Mute the author or the member (toggle if bool mute=None)"""
+    """Mute or demute the member (toggle if bool mute=None)"""
 
-    def __init__(self, mute):
+    def __init__(self, bot, mute):
         self.mute=mute
 
     async def execute(self, data: discord.Member):
@@ -429,9 +531,27 @@ class DeleteIt:
     def __init__(self, bot):
         pass
 
-    async def execute(self, message):
+    async def execute(self, message: discord.Message):
         await message.delete()
 
+class ChangeRole:
+    """Give or remove the member a role (toogle if bool give=None)"""
+
+    def __init__(self, bot, give, reason,  role: discord.Role):
+        self.role=role
+        self.give=give
+        self.reason=reason
+
+    async def execute(self, member: discord.Member):
+        if self.give==None:
+            if self.role in member.roles:
+                self.give=False
+            else:
+                self.give=True
+        if self.give:
+            await member.add_roles(self.role, self.reason)
+        else:
+            await member.remove_roles(self.role, self.reason)
 
 """
 Things storage
@@ -456,7 +576,8 @@ events={
             {
                 "name": "channels",
                 "description": "Id of the channels to watch (every channels if empty)",
-                "type": "list"
+                "type": "list",
+                "converter": "list_id_textchannel"
             }
         ]
     },
@@ -478,7 +599,8 @@ events={
             {
                 "name": "channels",
                 "description": "Id of the channels to watch (every channels if empty)",
-                "type": "list"
+                "type": "list",
+                "converter": "list_id_textchannel"
             }
         ]
     },
@@ -490,17 +612,20 @@ events={
             {
                 "name": "channels",
                 "description": "Id of the channels to watch (every if empty or none)",
-                "type": "list"
+                "type": "list",
+                "converter": "list_id_textchannel"
             },
             {
                 "name": "authors",
                 "description": "Id of the authors to watch (every if empty or none)",
-                "type": "list"
+                "type": "list",
+                "converter": "list_id_member"
             },
             {
                 "name": "roles",
                 "description": "Id of the roles to watch (every if empty or none)",
-                "type": "list"
+                "type": "list",
+                "converter": "list_id_role"
             }
         ]
     },
@@ -509,6 +634,24 @@ events={
         "description": "someone join your server",
         "class": Join,
         "args": []
+    },
+    "ReactionAdd": {
+            "name": "ReactionAdd",
+            "description": "the reaction |reaction| is sent to the message: |message|",
+            "class": ReactionAdd,
+            "args": [
+                {
+                    "name": "reaction",
+                    "description": "Name of the reaction to watch",
+                    "type": "str",
+                    "converter": "name_emoji"
+                },
+                {
+                    "name": "message",
+                    "description": "Id of the message to watch",
+                    "type": "int"
+                }
+            ]
     }
 }
 
@@ -557,7 +700,7 @@ conditions={
             {
                 "name": "allowlist",
                 "description": "The list of word which will be watched",
-                "type": list
+                "type": "list"
             }
         ]
     }
@@ -577,7 +720,8 @@ effects={
             {
                 "name": "channel",
                 "description": "The channel id where to send the message",
-                "type": "int"
+                "type": "int",
+                "converter": "id_textchannel"
             }
         ]
     },
@@ -594,7 +738,8 @@ effects={
             {
                 "name": "channel",
                 "description": "The channel id where to send the message",
-                "type": "int"
+                "type": "int",
+                "converter": "id_textchannel"
             },
             {
                 "name": "delay",
@@ -616,7 +761,8 @@ effects={
             {
                 "name": "channel",
                 "description": "The channel id where to send the embed",
-                "type": "int"
+                "type": "int",
+                "converter": "id_textchannel"
             }
         ]
     },
@@ -633,7 +779,8 @@ effects={
             {
                 "name": "channel",
                 "description": "The channel id where to send the embed",
-                "type": "int"
+                "type": "int",
+                "converter": "id_textchannel"
             },
             {
                 "name": "delay",
@@ -671,5 +818,28 @@ effects={
         "description": "delete the message",
         "class": DeleteIt,
         "args": []
+    },
+    "ChangeRole": {
+        "name": "ChangeRole",
+        "description": "will add or remove the role |role| to the user, or toogle it depending of the value of |give| with the reason |reason|",
+        "class": ChangeRole,
+        "args": [
+            {
+                "name": "role",
+                "description": "Id of the role",
+                "type": "int",
+                "converter": "id_role"
+            },
+            {
+                "name": "give",
+                "description": "If the role must be added (True), removed (False) or toogled (None) to the user",
+                "type": "bool"
+            },
+            {
+                "name": "reason",
+                "reason": "The reason of this change",
+                "type": "str"
+            }
+        ]
     }
 }
